@@ -985,6 +985,62 @@
 			}, asyncCheckDuration);
 		});
 
+		/****************************
+		   Command: Pause / Resume
+		*****************************/
+
+		QUnit.asyncTest("Command: Pause / Resume", function() {
+			expect(6);
+
+			var $target1 = getTarget();
+			/* Ensure an error isn't thrown when "pause" is called on a $target that isn't animating. */
+			Velocity($target1, "pause");
+
+			/* Ensure an error isn't thrown when "pause" is called on a $target that isn't animating. */
+			Velocity($target1, "resume");
+
+
+			/* Ensure a paused $target ceases to animate */
+			Velocity($target1, { opacity: 0 }, defaultOptions);
+			notEqual(Data($target1, pluginName).isPaused, true, "Newly active call not paused.");
+			Velocity($target1, "pause");
+			equal(Data($target1, pluginName).isPaused, true, "Active call is paused.");
+
+			setTimeout(function() {
+				equal(parseFloat(Velocity.CSS.getPropertyValue($target1, "opacity")), 1, "Property value unchanged after pause.");
+			}, completeCheckDuration);
+
+			/* Ensure a resumed $target proceeds to animate */
+			var $target2 = getTarget();
+			Velocity($target2, { opacity: 0 }, defaultOptions);
+			Velocity($target2, "pause");
+			Velocity($target2, "resume");
+			notEqual(Data($target2, pluginName).isPaused, true, "Resumed call is not paused.");
+
+			setTimeout(function() {
+				equal(parseFloat(Velocity.CSS.getPropertyValue($target2, "opacity")), 0, "Tween completed after pause/resume.");
+			}, completeCheckDuration);
+
+			/* Ensure the property values of a pause tween are midway between start and end values */
+			var $target3 = getTarget();
+			Velocity($target3, { opacity: 0 }, defaultOptions);
+
+			/* Pause element midway through tween */
+			setTimeout(function() {
+				Velocity($target3, "pause");
+			}, Math.floor(defaultOptions.duration / 2));
+
+			setTimeout(function() {
+				/* Property value should be between start and end */
+				var val = parseFloat(Velocity.CSS.getPropertyValue($target3, "opacity"));
+				ok(val > 0 && val < 1)
+
+				start();
+			}, completeCheckDuration);
+
+			
+		});
+
 		/******************
 		   Command: Finish
 		******************/

@@ -2242,8 +2242,8 @@
 
 			/* Support is included for jQuery's argument overloading: $.animate(propertyMap [, duration] [, easing] [, complete]).
 			 Overloading is detected by checking for the absence of an object being passed into options. */
-			/* Note: The stop and finish actions do not accept animation options, and are therefore excluded from this check. */
-			if (!/^(stop|finish|finishAll)$/i.test(propertiesMap) && !$.isPlainObject(options)) {
+			/* Note: The stop/finish/pause/resume actions do not accept animation options, and are therefore excluded from this check. */
+			if (!/^(stop|finish|finishAll|pause|resume)$/i.test(propertiesMap) && !$.isPlainObject(options)) {
 				/* The utility function shifts all arguments one position to the right, so we adjust for that offset. */
 				var startingArgumentPosition = argumentIndex + 1;
 
@@ -2271,8 +2271,9 @@
 			 *********************/
 
 			/* Velocity's behavior is categorized into "actions": Elements can either be specially scrolled into view,
-			 or they can be started, stopped, or reversed. If a literal or referenced properties map is passed in as Velocity's
-			 first argument, the associated action is "start". Alternatively, "scroll", "reverse", or "stop" can be passed in instead of a properties map. */
+			 or they can be started, stopped, paused, resumed, or reversed . If a literal or referenced properties map is passed in as Velocity's
+			 first argument, the associated action is "start". Alternatively, "scroll", "reverse", "pause", "resume" or "stop" can be passed in 
+			 instead of a properties map. */
 			var action;
 
 			switch (propertiesMap) {
@@ -2283,6 +2284,56 @@
 				case "reverse":
 					action = "reverse";
 					break;
+
+				case "pause":
+					
+					/*******************
+					 Action: Pause
+					 *******************/
+
+					var currentTime = (new Date()).getTime();
+
+					$.each(elements, function(i, element) {
+						var data = Data(element);
+
+						if (data && !data.isPaused) {
+							/* Flag the element as paused, which will cause Velocity to skip processing the tween. */
+							data.isPaused = true;
+
+							/* If the element is currently mid-delay, remove the timeout function and store the remaining delay */
+							if(data.delayTimer) {
+								data.delayRemaining = data.delay - currentTime - data.delayBegin;
+								clearTimeout(data.delayTimer.setTimeout);
+							}
+
+						}
+					});
+
+					/* Since pause creates no new tweens, exit out of Velocity. */
+					return getChain();
+
+				case "resume":
+
+					/*******************
+					 Action: Resume
+					 *******************/
+
+					$.each(elements, function(i, element) {
+						var data = Data(element);
+						if (data && data.isPaused) {
+							/* Clear the paused flag, which will cause Velocity to continue processing the tween. */
+							data.isPaused = false;
+
+							if(data.delayTimer) {
+								/* If the element was mid-delay, re initiate the timeout with the remaining delay */
+								data.delayTimer.setTimeout = setTimeout(data.delayTimer.next, data.delayRemaining);
+							}
+
+						}
+					});
+					
+					/* Since resume creates no new tweens, exit out of Velocity. */
+					return getChain();
 
 				case "finish":
 				case "finishAll":
@@ -2549,7 +2600,11 @@
 						Velocity.velocityQueueEntryFlag = true;
 
 						/* The ensuing queue item (which is assigned to the "next" argument that $.queue() automatically passes in) will be triggered after a setTimeout delay.
-						 The setTimeout is stored so that it can be subjected to clearTimeout() if this animation is prematurely stopped via Velocity's "stop" command. */
+						 The setTimeout is stored so that it can be subjected to clearTimeout() if this animation is prematurely stopped via Velocity's "stop" command, and
+						 delayBegin/delayTime is used to ensure we can "pause" and "resume" a tween that is still mid-delay. */
+
+						Data(element).delayBegin = (new Date()).getTime();
+						Data(element).delay = parseFloat(opts.delay);
 						Data(element).delayTimer = {
 							setTimeout: setTimeout(next, parseFloat(opts.delay)),
 							next: next
@@ -3683,8 +3738,8 @@
 								element = tweensContainer.element;
 
 						/* Check to see if this element has been deleted midway through the animation by checking for the
-						 continued existence of its data cache. If it's gone, skip animating this element. */
-						if (!Data(element)) {
+						 continued existence of its data cache. If it's gone, or the element is currently paused, skip animating this element. */
+						if (!Data(element) || Data(element).isPaused) {
 							continue;
 						}
 
