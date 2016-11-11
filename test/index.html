@@ -990,25 +990,40 @@
 		*****************************/
 
 		QUnit.asyncTest("Command: Pause / Resume", function() {
-			expect(6);
+			expect(9);
 
-			var $target1 = getTarget();
+			var $target1 = getTarget(); 
+			var $target1d = getTarget(); //delayed
 			/* Ensure an error isn't thrown when "pause" is called on a $target that isn't animating. */
 			Velocity($target1, "pause");
+			Velocity($target1d, "pause");
 
 			/* Ensure an error isn't thrown when "pause" is called on a $target that isn't animating. */
 			Velocity($target1, "resume");
+			Velocity($target1d, "resume");
 
 
 			/* Ensure a paused $target ceases to animate */
 			Velocity($target1, { opacity: 0 }, defaultOptions);
 			notEqual(Data($target1, pluginName).isPaused, true, "Newly active call not paused.");
+			Velocity($target1d, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { delay: 1000 }));
+			notEqual(Data($target1d, pluginName).isPaused, true, "New call with delay not paused.");
+			
+			
+			/* Ensure paused flags are set */
 			Velocity($target1, "pause");
 			equal(Data($target1, pluginName).isPaused, true, "Active call is paused.");
+			Velocity($target1d, "pause");
+			equal(Data($target1d, pluginName).isPaused, true, "Delayed call is paused.");
 
 			setTimeout(function() {
 				equal(parseFloat(Velocity.CSS.getPropertyValue($target1, "opacity")), 1, "Property value unchanged after pause.");
 			}, completeCheckDuration);
+
+			setTimeout(function() {
+				equal(parseFloat(Velocity.CSS.getPropertyValue($target1d, "opacity")), 1, "Property value unchanged after pause during delay.");
+				start();
+			}, 1001);
 
 			/* Ensure a resumed $target proceeds to animate */
 			var $target2 = getTarget();
@@ -1035,9 +1050,8 @@
 				var val = parseFloat(Velocity.CSS.getPropertyValue($target3, "opacity"));
 				ok(val > 0 && val < 1)
 
-				start();
+				
 			}, completeCheckDuration);
-
 			
 		});
 
