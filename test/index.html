@@ -1002,11 +1002,10 @@
 			Velocity($target1, "resume");
 			Velocity($target1d, "resume");
 
-
 			/* Ensure a paused $target ceases to animate */
 			Velocity($target1, { opacity: 0 }, defaultOptions);
 			notEqual(Data($target1, pluginName).isPaused, true, "Newly active call not paused.");
-			Velocity($target1d, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { delay: 1000 }));
+			Velocity($target1d, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { delay: 400 }));
 			notEqual(Data($target1d, pluginName).isPaused, true, "New call with delay not paused.");
 			
 			
@@ -1022,8 +1021,7 @@
 
 			setTimeout(function() {
 				equal(parseFloat(Velocity.CSS.getPropertyValue($target1d, "opacity")), 1, "Property value unchanged after pause during delay.");
-				start();
-			}, 1001);
+			}, 401);
 
 			/* Ensure a resumed $target proceeds to animate */
 			var $target2 = getTarget();
@@ -1034,25 +1032,61 @@
 
 			setTimeout(function() {
 				equal(parseFloat(Velocity.CSS.getPropertyValue($target2, "opacity")), 0, "Tween completed after pause/resume.");
+
+				/* Longest delay should start */
+				start();
 			}, completeCheckDuration);
 
 			/* Ensure the property values of a pause tween are midway between start and end values */
-			var $target3 = getTarget();
-			Velocity($target3, { opacity: 0 }, defaultOptions);
+			var $target3 = getTarget(),
+				percent = 0,
+				isPaused = false;
+
+			Velocity($target3, { opacity: 0 }, { 
+				duration: 200,
+				easing:"linear",
+				progress: function(elements, _percentComplete, _msRemaining) {
+					if(isPaused) {
+						throw "Progress callback run after pause."
+					}
+					percent = _percentComplete;
+				}
+			});
 
 			/* Pause element midway through tween */
 			setTimeout(function() {
 				Velocity($target3, "pause");
-			}, Math.floor(defaultOptions.duration / 2));
+				isPaused = true;
+			}, 100);
 
 			setTimeout(function() {
-				/* Property value should be between start and end */
-				var val = parseFloat(Velocity.CSS.getPropertyValue($target3, "opacity"));
-				ok(val > 0 && val < 1)
+				Velocity($target3, "resume");
+				isPaused = false;
+			}, 200);
 
-				
-			}, completeCheckDuration);
 			
+			setTimeout(function() {
+				/* Property value should be linearly proportional to */
+				var val = parseFloat(Velocity.CSS.getPropertyValue($target3, "opacity"));
+
+				/* Prop value and percentage complete should correlate after pause. We need to test this since
+				the timing variables used to calculate and return the percentage complete and msRemaining are
+				modified after pause and resume comamands have been issued on the call */
+				ok(Math.round(1 - val, 4) == Math.round(percent, 4) , "Tween value and percentage complete correlates correctly after pause.");
+
+			}, 250);
+
+
+			/* Ensure a all elements in a call are paused if any element is paused, likewise for resume */
+			var $targetA = getTarget(), $targetB = getTarget();
+			Velocity([$targetA, $targetB], { opacity: 0 }, {
+				duration:100,
+				progress:function(elements, percent, msRemaining) {
+					throw "Tween does not proceed for any elements"
+				}
+			});
+			
+			Velocity($targetA, "pause");		
 		});
 
 		/******************
