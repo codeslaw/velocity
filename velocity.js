@@ -2298,10 +2298,7 @@
 					$.each(elements, function(i, element) {
 						var data = Data(element);
 
-						if (data && !data.isPaused) {
-							/* Flag the element as paused */
-							data.isPaused = true;
-
+						if (data) {
 							/* If the element is currently mid-delay, remove the timeout function and store the remaining delay */
 							if(data.delayTimer) {
 								data.delayRemaining = data.delay - currentTime - data.delayBegin;
@@ -2367,10 +2364,7 @@
 					$.each(elements, function(i, element) {
 						var data = Data(element);
 
-						if (data && data.isPaused) {
-							/* Clear the paused flags, which will cause Velocity to continue processing the call. */
-							data.isPaused = false;
-
+						if (data) {
 							if(data.delayTimer) {
 								/* If the element was mid-delay, re initiate the timeout with the remaining delay */
 								data.delayTimer.setTimeout = setTimeout(data.delayTimer.next, data.delayRemaining);
