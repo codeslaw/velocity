@@ -2293,11 +2293,13 @@
 
 					var currentTime = (new Date()).getTime();
 
+					/* Check for any delayed calls, and pause the set timeouts (while preserving time data)
+						to be resumed when the "resume" command is issued */
 					$.each(elements, function(i, element) {
 						var data = Data(element);
 
 						if (data && !data.isPaused) {
-							/* Flag the element as paused, which will cause Velocity to skip processing the tween. */
+							/* Flag the element as paused */
 							data.isPaused = true;
 
 							/* If the element is currently mid-delay, remove the timeout function and store the remaining delay */
@@ -2307,6 +2309,50 @@
 							}
 
 						}
+					});
+
+					/* Pause and Resume are call-wide (not on a per elemnt basis). Thus, calling pause or resume on a 
+					single element will cause any calls that containt tweens for that element to be paused/resumed
+					as well. */
+
+					/* Iterate through all calls and pause any that contain any of our elements */
+					$.each(Velocity.State.calls, function(i, activeCall) {
+						
+						var found = false;
+						/* Inactive calls are set to false by the logic inside completeCall(). Skip them. */
+						if (activeCall) {
+							/* Iterate through the active call's targeted elements. */
+							$.each(activeCall[1], function(k, activeElement) {
+								var queueName = (options === undefined) ? "" : options;
+
+								if (queueName !== true && (activeCall[2].queue !== queueName) && !(options === undefined && activeCall[2].queue === false)) {
+									return true;
+								}
+
+								/* Iterate through the calls targeted by the stop command. */
+								$.each(elements, function(l, element) {
+									/* Check that this call was applied to the target element. */
+									if (element === activeElement) {
+										var data = Data(element);
+										var percentComplete = (data && data.animationPercentComplete) ? data.animationPercentComplete : 0
+
+										/* Store the paused time and animation completion percent to resume from */
+										activeCall[6] = {
+											percentComplete: percentComplete
+										}
+
+										/* Stop checking for matched elements once we have found one */
+										found = true;
+										return false;
+									}
+								});
+
+								/* Proceed to check next call if we have already matched this */
+								if(found)
+									return false;
+							});
+						}
+
 					});
 
 					/* Since pause creates no new tweens, exit out of Velocity. */
@@ -2320,8 +2366,9 @@
 
 					$.each(elements, function(i, element) {
 						var data = Data(element);
+
 						if (data && data.isPaused) {
-							/* Clear the paused flag, which will cause Velocity to continue processing the tween. */
+							/* Clear the paused flags, which will cause Velocity to continue processing the call. */
 							data.isPaused = false;
 
 							if(data.delayTimer) {
@@ -2330,6 +2377,50 @@
 							}
 
 						}
+					});
+					
+					/* Pause and Resume are call-wide (not on a per elemnt basis). Thus, calling pause or resume on a 
+					single element will cause any calls that containt tweens for that element to be paused/resumed
+					as well. */
+
+					/* Iterate through all calls and pause any that contain any of our elements */
+					$.each(Velocity.State.calls, function(i, activeCall) {
+						var found = false;
+						/* Inactive calls are set to false by the logic inside completeCall(). Skip them. */
+						if (activeCall) {
+							/* Iterate through the active call's targeted elements. */
+							$.each(activeCall[1], function(k, activeElement) {
+								var queueName = (options === undefined) ? "" : options;
+
+								if (queueName !== true && (activeCall[2].queue !== queueName) && !(options === undefined && activeCall[2].queue === false)) {
+									return true;
+								}
+
+								/* Skip any calls that have never been paused */
+								if(activeCall.length < 6 && !activeCall[6])
+									return true;
+
+								/* Iterate through the calls targeted by the stop command. */
+								$.each(elements, function(l, element) {
+									/* Check that this call was applied to the target element. */
+									if (element === activeElement) {
+										
+										/* Flag a pause object to be resumed, which will occur during the next tick. In
+										addition, the pause object will at that time be deleted */
+										activeCall[6].resume = true;
+										
+										/* Stop checking for matched elements once we have found one */
+										found = true;
+										return false;
+									}
+								});
+
+								/* Proceed to check next call if we have already matched this */
+								if(found)
+									return false;
+							});
+						}
+
 					});
 					
 					/* Since resume creates no new tweens, exit out of Velocity. */
@@ -3497,7 +3588,7 @@
 						if (elementsIndex === elementsLength - 1) {
 							/* Add the current call plus its associated metadata (the element set and the call's options) onto the global call container.
 							 Anything on this call container is subjected to tick() processing. */
-							Velocity.State.calls.push([call, elements, opts, null, promiseData.resolver]);
+							Velocity.State.calls.push([call, elements, opts, null, promiseData.resolver, null, null]);
 
 							/* If the animation tick isn't running, start it. (Velocity shuts it off when there are no active calls to process.) */
 							if (Velocity.State.isTicking === false) {
@@ -3709,7 +3800,10 @@
 							opts = callContainer[2],
 							timeStart = callContainer[3],
 							firstTick = !!timeStart,
-							tweenDummyValue = null;
+							tweenDummyValue = null,
+							pauseObject = callContainer[6];
+
+
 
 					/* If timeStart is undefined, then this is the first time that this call has been processed by tick().
 					 We assign timeStart now so that its value is as close to the real animation start time as possible.
@@ -3721,6 +3815,19 @@
 					 same style value as the element's current value. */
 					if (!timeStart) {
 						timeStart = Velocity.State.calls[i][3] = timeCurrent - 16;
+					}
+
+					/* If a pause object is present, skip processing unless it has been set to resume */
+					if(pauseObject) {
+						if(pauseObject.resume) {
+							/* Update the time start to accomodate the paused completion amount */
+							timeStart = callContainer[3] = timeCurrent - opts.duration * pauseObject.percentComplete - 16;
+
+							/* Remove pause object after processing */
+							callContainer[6] = null;
+						} else {
+							continue;
+						}
 					}
 
 					/* The tween's completion percentage is relative to the tween's start time, not the tween's start value
@@ -3739,11 +3846,14 @@
 
 						/* Check to see if this element has been deleted midway through the animation by checking for the
 						 continued existence of its data cache. If it's gone, or the element is currently paused, skip animating this element. */
-						if (!Data(element) || Data(element).isPaused) {
+						if (!Data(element)) {
 							continue;
 						}
 
 						var transformPropertyExists = false;
+
+						/* Write current completion percentage to element data for processing pause/resume values */
+						Data(element).animationPercentComplete = percentComplete;
 
 						/**********************************
 						 Display & Visibility Toggling
