@@ -3818,7 +3818,7 @@
 					if(pauseObject) {
 						if(pauseObject.resume) {
 							/* Update the time start to accomodate the paused completion amount */
-							timeStart = callContainer[3] = timeCurrent - opts.duration * pauseObject.percentComplete - 16;
+							timeStart = callContainer[3] = Math.round(timeCurrent - opts.duration * pauseObject.percentComplete - 16);
 
 							/* Remove pause object after processing */
 							callContainer[5] = null;
