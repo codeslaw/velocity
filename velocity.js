@@ -2301,7 +2301,7 @@
 						if (data) {
 							/* If the element is currently mid-delay, remove the timeout function and store the remaining delay */
 							if(data.delayTimer) {
-								data.delayRemaining = data.delay - currentTime - data.delayBegin;
+								data.delayRemaining = data.delay - currentTime + data.delayBegin;
 								clearTimeout(data.delayTimer.setTimeout);
 							}
 
@@ -2334,7 +2334,7 @@
 										var percentComplete = (data && data.animationPercentComplete) ? data.animationPercentComplete : 0
 
 										/* Store the paused time and animation completion percent to resume from */
-										activeCall[6] = {
+										activeCall[5] = {
 											percentComplete: percentComplete
 										}
 
@@ -2391,7 +2391,7 @@
 								}
 
 								/* Skip any calls that have never been paused */
-								if(activeCall.length < 6 && !activeCall[6])
+								if(!activeCall[5])
 									return true;
 
 								/* Iterate through the calls targeted by the stop command. */
@@ -2401,7 +2401,7 @@
 										
 										/* Flag a pause object to be resumed, which will occur during the next tick. In
 										addition, the pause object will at that time be deleted */
-										activeCall[6].resume = true;
+										activeCall[5].resume = true;
 										
 										/* Stop checking for matched elements once we have found one */
 										found = true;
@@ -3582,7 +3582,7 @@
 						if (elementsIndex === elementsLength - 1) {
 							/* Add the current call plus its associated metadata (the element set and the call's options) onto the global call container.
 							 Anything on this call container is subjected to tick() processing. */
-							Velocity.State.calls.push([call, elements, opts, null, promiseData.resolver, null, null]);
+							Velocity.State.calls.push([call, elements, opts, null, promiseData.resolver, null]);
 
 							/* If the animation tick isn't running, start it. (Velocity shuts it off when there are no active calls to process.) */
 							if (Velocity.State.isTicking === false) {
@@ -3795,7 +3795,7 @@
 							timeStart = callContainer[3],
 							firstTick = !!timeStart,
 							tweenDummyValue = null,
-							pauseObject = callContainer[6];
+							pauseObject = callContainer[5];
 
 
 
@@ -3818,7 +3818,7 @@
 							timeStart = callContainer[3] = timeCurrent - opts.duration * pauseObject.percentComplete - 16;
 
 							/* Remove pause object after processing */
-							callContainer[6] = null;
+							callContainer[5] = null;
 						} else {
 							continue;
 						}
