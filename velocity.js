@@ -2331,12 +2331,12 @@
 									/* Check that this call was applied to the target element. */
 									if (element === activeElement) {
 										var data = Data(element);
-										var percentComplete = (data && data.animationPercentComplete) ? data.animationPercentComplete : 0
+										var percentComplete = (data && data.animationPercentComplete) ? data.animationPercentComplete : 0;
 
 										/* Store the paused time and animation completion percent to resume from */
 										activeCall[5] = {
 											percentComplete: percentComplete
-										}
+										};
 
 										/* Stop checking for matched elements once we have found one */
 										found = true;
@@ -2345,8 +2345,9 @@
 								});
 
 								/* Proceed to check next call if we have already matched this */
-								if(found)
+								if(found) {
 									return false;
+								}
 							});
 						}
 
@@ -2391,8 +2392,9 @@
 								}
 
 								/* Skip any calls that have never been paused */
-								if(!activeCall[5])
+								if(!activeCall[5]) {
 									return true;
+								}
 
 								/* Iterate through the calls targeted by the stop command. */
 								$.each(elements, function(l, element) {
@@ -2410,8 +2412,9 @@
 								});
 
 								/* Proceed to check next call if we have already matched this */
-								if(found)
+								if(found) {
 									return false;
+								}
 							});
 						}
 
