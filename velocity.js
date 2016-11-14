@@ -2308,7 +2308,7 @@
 						}
 					});
 
-					/* Pause and Resume are call-wide (not on a per elemnt basis). Thus, calling pause or resume on a 
+					/* Pause and Resume are call-wide (not on a per element basis). Thus, calling pause or resume on a 
 					single element will cause any calls that containt tweens for that element to be paused/resumed
 					as well. */
 
