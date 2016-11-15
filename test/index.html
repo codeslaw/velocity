@@ -990,7 +990,7 @@
 		*****************************/
 
 		QUnit.asyncTest("Command: Pause / Resume", function() {
-			expect(8);
+			expect(9);
 
 			var $target1 = getTarget(); 
 			var $target1d = getTarget(); //delayed
@@ -1047,7 +1047,6 @@
 
 			setTimeout(function() {
 				equal(parseFloat(Velocity.CSS.getPropertyValue($target2d, "opacity")), 0, "Delayed tween completed after pause/resume.");
-				start();
 			}, completeCheckDuration + 200);
 
 			/* Ensure the property values of a pause tween are midway between start and end values */
@@ -1099,7 +1098,58 @@
 				}
 			});
 			
-			Velocity($targetA, "pause");		
+			Velocity($targetA, "pause");	
+
+
+			/* Ensure proper behavior with queue:false  */
+			var $target4 = getTarget();
+			Velocity($target4, { opacity: 0 }, { 
+				duration: 200,
+			});
+
+			var isResumed = false;
+
+			setTimeout(function() {
+				Velocity($target4, "pause");
+
+				var testRan = false;
+
+				Velocity($target4, { left: -20 }, { 
+					duration: 200,
+					easing:"linear",
+					queue: false,
+					progress: function(elements, _percentComplete, _msRemaining) {
+						
+						if(!testRan) {
+							ok(true, "Animation with {queue:false} will run regardless of previously paused animations.")
+						}
+						testRan = true;
+						
+					}
+				});
+
+				Velocity($target4, { top: 20 }, { 
+					duration: 200,
+					easing:"linear",
+					progress: function(elements, _percentComplete, _msRemaining) {
+						if(!isResumed) {
+							throw "Queued animation doesn't begin until previous animation was resumed."
+						}
+					}
+				});
+
+
+			}, 100);
+
+			setTimeout(function() {
+				isResumed = true;
+				Velocity($target4, "resume");
+			}, 200);
+
+			setTimeout(function() {
+				start();
+			}, 800);
+
 		});
 
 		/******************
