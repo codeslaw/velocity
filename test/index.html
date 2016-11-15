@@ -990,7 +990,7 @@
 		*****************************/
 
 		QUnit.asyncTest("Command: Pause / Resume", function() {
-			expect(9);
+			expect(10);
 
 			var $target1 = getTarget(); 
 			var $target1d = getTarget(); //delayed
@@ -1113,9 +1113,8 @@
 				Velocity($target4, "pause");
 
 				var testRan = false;
-
 				Velocity($target4, { left: -20 }, { 
-					duration: 200,
+					duration: 100,
 					easing:"linear",
 					queue: false,
 					progress: function(elements, _percentComplete, _msRemaining) {
@@ -1128,13 +1127,17 @@
 					}
 				});
 
+				var test2ran = false;
 				Velocity($target4, { top: 20 }, { 
-					duration: 200,
+					duration: 100,
 					easing:"linear",
 					progress: function(elements, _percentComplete, _msRemaining) {
 						if(!isResumed) {
 							throw "Queued animation doesn't begin until previous animation was resumed."
+						} else if(!test2ran) {
+							ok(true, "Queued animation began after previously paused animation completed");
 						}
+						test2ran = true;
 					}
 				});
 
