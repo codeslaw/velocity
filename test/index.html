@@ -1100,7 +1100,6 @@
 			
 			Velocity($targetA, "pause");	
 
-
 			/* Ensure proper behavior with queue:false  */
 			var $target4 = getTarget();
 			Velocity($target4, { opacity: 0 }, { 
@@ -1111,37 +1110,26 @@
 
 			setTimeout(function() {
 				Velocity($target4, "pause");
-
-				var testRan = false;
 				Velocity($target4, { left: -20 }, { 
 					duration: 100,
 					easing:"linear",
 					queue: false,
-					progress: function(elements, _percentComplete, _msRemaining) {
-						
-						if(!testRan) {
-							ok(true, "Animation with {queue:false} will run regardless of previously paused animations.")
-						}
-						testRan = true;
-						
+					begin: function(elements) {
+						ok(true, "Animation with {queue:false} will run regardless of previously paused animations.")
 					}
 				});
 
-				var test2ran = false;
 				Velocity($target4, { top: 20 }, { 
 					duration: 100,
 					easing:"linear",
-					progress: function(elements, _percentComplete, _msRemaining) {
+					begin: function(elements) {
 						if(!isResumed) {
 							throw "Queued animation doesn't begin until previous animation was resumed."
-						} else if(!test2ran) {
+						} else {
 							ok(true, "Queued animation began after previously paused animation completed");
 						}
-						test2ran = true;
 					}
 				});
-
-
 			}, 100);
 
 			setTimeout(function() {
