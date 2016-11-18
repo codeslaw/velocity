@@ -693,7 +693,58 @@
 			/* Set to 1 or 2 (most verbose) to output debug info to console. */
 			debug: false,
 			/* Use rAF high resolution timestamp when available */
-			timestamp: true
+			timestamp: true,
+			/* Pause all animations */
+			pauseAll: function(queueName) {
+				var currentTime = (new Date()).getTime();
+
+				$.each(Velocity.State.calls, function(i, activeCall) {
+											
+					if (activeCall) {
+						
+						/* If we have a queueName and this call is not on that queue, skip */
+						if (queueName !== undefined && ((activeCall[2].queue !== queueName) || (activeCall[2].queue === false))) {
+							return true;
+						}
+
+						/* Set call to paused */
+						activeCall[5] = {
+							resume:false
+						};
+
+						$.each(activeCall[1], function(k, activeElement) {
+
+							pauseDelayOnElement(activeElement, currentTime);
+							
+						});
+					}
+				});
+			},
+			/* Resume all animations */
+			resumeAll: function(queueName) {
+				var currentTime = (new Date()).getTime();
+
+				$.each(Velocity.State.calls, function(i, activeCall) {
+						
+					if (activeCall) {
+						
+						/* If we have a queueName and this call is not on that queue, skip */
+						if (queueName !== undefined && ((activeCall[2].queue !== queueName) || (activeCall[2].queue === false))) {
+							return true;
+						}
+
+						/* Set call to resumed if it was paused */
+						if(activeCall[5]) {
+							activeCall[5].resume = true;
+						}
+
+						$.each(activeCall[1], function(k, activeElement) {
+
+							resumeDelayOnElement(activeElement, currentTime);
+						});
+					}
+				});
+			}
 		};
 
 		/* Retrieve the appropriate scroll anchor and property name for the browser: https://developer.mozilla.org/en-US/docs/Web/API/Window.scrollY */
@@ -715,6 +766,33 @@
 			/* jQuery <=1.4.2 returns null instead of undefined when no match is found. We normalize this behavior. */
 			return response === null ? undefined : response;
 		}
+
+		/**************
+		 Delay Timer
+		 **************/
+
+		function pauseDelayOnElement(element, currentTime) {
+			/* Check for any delay timers, and pause the set timeouts (while preserving time data)
+			to be resumed when the "resume" command is issued */
+			var data = Data(element);
+			if (data && data.delayTimer && !data.delayPaused) {
+				data.delayRemaining = data.delay - currentTime + data.delayBegin;
+				data.delayPaused = true;
+				clearTimeout(data.delayTimer.setTimeout);
+			}
+		}
+
+		function resumeDelayOnElement(element, currentTime) {
+			/* Check for any paused timers and resume */
+			var data = Data(element);
+			if (data && data.delayTimer && data.delayPaused) {
+				/* If the element was mid-delay, re initiate the timeout with the remaining delay */
+				data.delayPaused = false;
+				data.delayTimer.setTimeout = setTimeout(data.delayTimer.next, data.delayRemaining);
+			}
+		}
+
+
 
 		/**************
 		 Easing
@@ -2293,19 +2371,9 @@
 
 					var currentTime = (new Date()).getTime();
 
-					/* Check for any delayed calls, and pause the set timeouts (while preserving time data)
-						to be resumed when the "resume" command is issued */
+					/* Handle delay timers */
 					$.each(elements, function(i, element) {
-						var data = Data(element);
-
-						if (data) {
-							/* If the element is currently mid-delay, remove the timeout function and store the remaining delay */
-							if(data.delayTimer) {
-								data.delayRemaining = data.delay - currentTime + data.delayBegin;
-								clearTimeout(data.delayTimer.setTimeout);
-							}
-
-						}
+						pauseDelayOnElement(element, currentTime);
 					});
 
 					/* Pause and Resume are call-wide (not on a per element basis). Thus, calling pause or resume on a 
@@ -2330,21 +2398,19 @@
 								$.each(elements, function(l, element) {
 									/* Check that this call was applied to the target element. */
 									if (element === activeElement) {
-										var data = Data(element);
-										var percentComplete = (data && data.animationPercentComplete) ? data.animationPercentComplete : 0;
 
-										/* Store the paused time and animation completion percent to resume from */
+										/* Set call to paused */
 										activeCall[5] = {
-											percentComplete: percentComplete
+											resume:false
 										};
 
-										/* Stop checking for matched elements once we have found one */
+										/* Once we match an element, we can bounce out to the next call entirely */
 										found = true;
 										return false;
 									}
 								});
 
-								/* Proceed to check next call if we have already matched this */
+								/* Proceed to check next call if we have already matched */
 								if(found) {
 									return false;
 								}
@@ -2362,16 +2428,9 @@
 					 Action: Resume
 					 *******************/
 
+					/* Handle delay timers */
 					$.each(elements, function(i, element) {
-						var data = Data(element);
-
-						if (data) {
-							if(data.delayTimer) {
-								/* If the element was mid-delay, re initiate the timeout with the remaining delay */
-								data.delayTimer.setTimeout = setTimeout(data.delayTimer.next, data.delayRemaining);
-							}
-
-						}
+						resumeDelayOnElement(element, currentTime);
 					});
 					
 					/* Pause and Resume are call-wide (not on a per elemnt basis). Thus, calling pause or resume on a 
@@ -2405,13 +2464,13 @@
 										addition, the pause object will at that time be deleted */
 										activeCall[5].resume = true;
 										
-										/* Stop checking for matched elements once we have found one */
+										/* Once we match an element, we can bounce out to the next call entirely */
 										found = true;
 										return false;
 									}
 								});
 
-								/* Proceed to check next call if we have already matched this */
+								/* Proceed to check next call if we have already matched */
 								if(found) {
 									return false;
 								}
@@ -3585,7 +3644,7 @@
 						if (elementsIndex === elementsLength - 1) {
 							/* Add the current call plus its associated metadata (the element set and the call's options) onto the global call container.
 							 Anything on this call container is subjected to tick() processing. */
-							Velocity.State.calls.push([call, elements, opts, null, promiseData.resolver, null]);
+							Velocity.State.calls.push([call, elements, opts, null, promiseData.resolver, null, 0]);
 
 							/* If the animation tick isn't running, start it. (Velocity shuts it off when there are no active calls to process.) */
 							if (Velocity.State.isTicking === false) {
@@ -3798,7 +3857,8 @@
 							timeStart = callContainer[3],
 							firstTick = !!timeStart,
 							tweenDummyValue = null,
-							pauseObject = callContainer[5];
+							pauseObject = callContainer[5],
+							millisecondsEllapsed = callContainer[6];
 
 
 
@@ -3818,7 +3878,7 @@
 					if(pauseObject) {
 						if(pauseObject.resume) {
 							/* Update the time start to accomodate the paused completion amount */
-							timeStart = callContainer[3] = Math.round(timeCurrent - opts.duration * pauseObject.percentComplete - 16);
+							timeStart = callContainer[3] = Math.round(timeCurrent - millisecondsEllapsed - 16);
 
 							/* Remove pause object after processing */
 							callContainer[5] = null;
@@ -3827,10 +3887,12 @@
 						}
 					}
 
+					millisecondsEllapsed = callContainer[6] = timeCurrent - timeStart;
+
 					/* The tween's completion percentage is relative to the tween's start time, not the tween's start value
 					 (which would result in unpredictable tween durations since JavaScript's timers are not particularly accurate).
 					 Accordingly, we ensure that percentComplete does not exceed 1. */
-					var percentComplete = Math.min((timeCurrent - timeStart) / opts.duration, 1);
+					var percentComplete = Math.min((millisecondsEllapsed) / opts.duration, 1);
 
 					/**********************
 					 Element Iteration
@@ -3848,9 +3910,6 @@
 						}
 
 						var transformPropertyExists = false;
-
-						/* Write current completion percentage to element data for processing pause/resume values */
-						Data(element).animationPercentComplete = percentComplete;
 
 						/**********************************
 						 Display & Visibility Toggling
@@ -4037,6 +4096,8 @@
 			/* Note: completeCall() sets the isTicking flag to false when the last call on Velocity.State.calls has completed. */
 			if (Velocity.State.isTicking) {
 				ticker(tick);
+			} else {
+				timePrevious = false;
 			}
 		}
 
