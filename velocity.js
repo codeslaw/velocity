@@ -4096,8 +4096,6 @@
 			/* Note: completeCall() sets the isTicking flag to false when the last call on Velocity.State.calls has completed. */
 			if (Velocity.State.isTicking) {
 				ticker(tick);
-			} else {
-				timePrevious = false;
 			}
 		}
 
