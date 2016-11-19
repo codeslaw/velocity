@@ -1143,6 +1143,64 @@
 
 		});
 
+		/****************************
+		   Command: Pause / Resume
+		*****************************/
+
+		QUnit.asyncTest("Command: Global Pause / Resume", function() {
+			expect(2);
+
+			var $target1 = getTarget(); 
+			var $target2 = getTarget();
+			var $target3 = getTarget();
+
+			var isPaused = false;
+			var hasProgressed2 = false;
+			Velocity($target1, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { 
+				delay: 100,
+				progress: function(elements, progress, msRemaining) {
+					console.log(isPaused);
+					if(isPaused) {
+						throw "Delayed Tween should not progress when globally paused"
+					}
+				}
+			}));
+			Velocity($target2, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { 
+				progress: function(elements, progress, msRemaining) {
+					if(isPaused) {
+						throw "Tween should not progress when globally paused"
+					} else if(!hasProgressed2) {
+						ok (true, "Tween resumes on individual pause after global resume");
+						hasProgressed2 = true;
+					}
+				}
+			}));
+
+			Velocity.pauseAll();
+			isPaused = true;
+
+			var hasProgressed3 = false;
+			Velocity($target3, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { 
+				progress: function(elements, progress, msRemaining) {
+					if(!hasProgressed3) {
+						ok (true, "New tween begins immediately after global pause");
+						hasProgressed3 = true;
+					}
+				}
+			}));
+
+
+			setTimeout(function() {
+				isPaused = false;
+				Velocity.resumeAll();
+			}, 200);
+
+			setTimeout(function() {
+				start();
+			}, 400);
+
+		});
+
 		/******************
 		   Command: Finish
 		******************/
