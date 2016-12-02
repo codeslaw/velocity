@@ -636,7 +636,9 @@
 				isTicking: false,
 				/* Container for every in-progress call to Velocity. */
 				calls: [],
-				delayedElements: [],
+				delayedElements: {
+					count:0
+				}
 			},
 			/* Velocity's custom CSS stack. Made global for unit testing. */
 			CSS: {/* Defined below. */},
@@ -2756,21 +2758,17 @@
 						 delayBegin/delayTime is used to ensure we can "pause" and "resume" a tween that is still mid-delay. */
 
 						/* Temporarily store delayed elements to facilite access for global pause/resume */
-						Velocity.State.delayedElements.push(element);
-						var callIndex = Velocity.State.delayedElements.length - 1;
+						var callIndex = Velocity.State.delayedElements.count ++;
+						Velocity.State.delayedElements[callIndex] = element;
 
 						var delayComplete = (function(index) {
 							return function() {
 								/* Clear the temporary element */
 								Velocity.State.delayedElements[index] = false;
-								
-								if(Velocity.State.delayedElements.length > 1000) {
-									compactSparseArray(Velocity.State.delayedElements);
-								}
 
 								/* Finally, issue the call */
 								next();
-							}
+							};
 						})(callIndex);
 
 
@@ -3690,21 +3688,17 @@
 					if (opts.delay) {
 
 						/* Temporarily store delayed elements to facilitate access for global pause/resume */
-						Velocity.State.delayedElements.push(element);
-						var callIndex = Velocity.State.delayedElements.length - 1;
+						var callIndex = Velocity.State.delayedElements.count++;
+						Velocity.State.delayedElements[callIndex] = element;
 
 						var delayComplete = (function(index) {
 							return function() {
 								/* Clear the temporary element */
 								Velocity.State.delayedElements[index] = false;
-								
-								if(Velocity.State.delayedElements.length > 1000) {
-									compactSparseArray(Velocity.State.delayedElements);
-								}
 
 								/* Finally, issue the call */
 								buildQueue();
-							}
+							};
 						})(callIndex);
 
 						Data(element).delayBegin = (new Date()).getTime();
