@@ -1059,7 +1059,7 @@
 				easing:"linear",
 				progress: function(elements, _percentComplete, _msRemaining) {
 					if(isPaused) {
-						throw "Progress callback run after pause."
+						throw new Error("Progress callback run after pause.");
 					}
 					percent = _percentComplete;
 				}
@@ -1094,7 +1094,7 @@
 			Velocity([$targetA, $targetB], { opacity: 0 }, {
 				duration:100,
 				progress:function(elements, percent, msRemaining) {
-					throw "Tween does not proceed for any elements"
+					throw new Error("Tween does not proceed for any elements");
 				}
 			});
 			
@@ -1124,7 +1124,7 @@
 					easing:"linear",
 					begin: function(elements) {
 						if(!isResumed) {
-							throw "Queued animation doesn't begin until previous animation was resumed."
+							throw new Error("Queued animation doesn't begin until previous animation was resumed.");
 						} else {
 							ok(true, "Queued animation began after previously paused animation completed");
 						}
@@ -1139,39 +1139,46 @@
 
 			setTimeout(function() {
 				start();
+				/* Clear out any existing test animations to prevent errors from being thrown
+				in another test */
+				try {
+					Velocity([$targetA, $target3, $target4], "stop");
+				} catch (e) {}
 			}, 800);
 
 		});
 
-		/****************************
-		   Command: Pause / Resume
-		*****************************/
+		/*********************************
+		   Command: PauseAll / ResumeAll
+		**********************************/
 
 		QUnit.asyncTest("Command: Global Pause / Resume", function() {
-			expect(2);
+			expect(3);
 
 			var $target1 = getTarget(); 
 			var $target2 = getTarget();
 			var $target3 = getTarget();
+			var $target4 = getTarget();
 
 			var isPaused = false;
 			var hasProgressed2 = false;
 			Velocity($target1, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { 
 				delay: 100,
+				queue:false,
 				progress: function(elements, progress, msRemaining) {
-					console.log(isPaused);
 					if(isPaused) {
-						throw "Delayed Tween should not progress when globally paused"
+						throw new Error("Delayed Tween should not progress when globally paused");
 					}
 				}
 			}));
+			
 			Velocity($target2, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { 
 				progress: function(elements, progress, msRemaining) {
 					if(isPaused) {
-						throw "Tween should not progress when globally paused"
+						throw new Error("Tween should not progress when globally paused");
 					} else if(!hasProgressed2) {
-						ok (true, "Tween resumes on individual pause after global resume");
 						hasProgressed2 = true;
+						ok (true, "Tween resumes on individual pause after global resume");
 					}
 				}
 			}));
@@ -1179,16 +1186,37 @@
 			Velocity.pauseAll();
 			isPaused = true;
 
+			/* Testing with custom queues */
 			var hasProgressed3 = false;
 			Velocity($target3, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { 
+				queue: "queue1",
 				progress: function(elements, progress, msRemaining) {
 					if(!hasProgressed3) {
-						ok (true, "New tween begins immediately after global pause");
 						hasProgressed3 = true;
+						ok (true, "Tweens created after global pause begin immediately");
 					}
 				}
 			}));
 
+			var hasProgressed4 = false;
+			Velocity($target4, { opacity: 0 }, Velocity.Utilities.extend({}, defaultOptions, { 
+				queue: "queue2",
+				progress: function(elements, progress, msRemaining) {
+					if(isPaused) {
+						throw new Error("Tween on paused queue should not progress");
+					} else if(!hasProgressed4) {
+						hasProgressed4 = true;
+						ok (true, "Paused tweens on a queue resume after a global resumeAll call");
+					}
+				}
+			}));
+
+			/* Begin queued animations */
+			Velocity.Utilities.dequeue($target4, "queue2");
+			Velocity.Utilities.dequeue($target3, "queue1");
+			
+			/* Only $target4 should pause */
+			Velocity.pauseAll("queue2");
 
 			setTimeout(function() {
 				isPaused = false;
@@ -1197,6 +1225,7 @@
 
 			setTimeout(function() {
 				start();
+				Velocity.resumeAll();
 			}, 400);
 
 		});
