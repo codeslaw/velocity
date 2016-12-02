@@ -635,7 +635,8 @@
 				/* Keep track of whether our RAF tick is running. */
 				isTicking: false,
 				/* Container for every in-progress call to Velocity. */
-				calls: []
+				calls: [],
+				delayedElements: [],
 			},
 			/* Velocity's custom CSS stack. Made global for unit testing. */
 			CSS: {/* Defined below. */},
@@ -711,13 +712,15 @@
 						activeCall[5] = {
 							resume:false
 						};
-
-						$.each(activeCall[1], function(k, activeElement) {
-
-							pauseDelayOnElement(activeElement, currentTime);
-							
-						});
 					}
+				});
+
+				/* Pause timers on any currently delayed calls */
+				$.each(Velocity.State.delayedElements, function(k, element) {
+					if(!element) {
+						return;
+					}
+					pauseDelayOnElement(element, currentTime);
 				});
 			},
 			/* Resume all animations */
@@ -737,12 +740,14 @@
 						if(activeCall[5]) {
 							activeCall[5].resume = true;
 						}
-
-						$.each(activeCall[1], function(k, activeElement) {
-
-							resumeDelayOnElement(activeElement, currentTime);
-						});
 					}
+				});
+				/* Resume timers on any currently delayed calls */
+				$.each(Velocity.State.delayedElements, function(k, element) {
+					if(!element) {
+						return;
+					}
+					resumeDelayOnElement(element, currentTime);
 				});
 			}
 		};
@@ -2750,11 +2755,30 @@
 						 The setTimeout is stored so that it can be subjected to clearTimeout() if this animation is prematurely stopped via Velocity's "stop" command, and
 						 delayBegin/delayTime is used to ensure we can "pause" and "resume" a tween that is still mid-delay. */
 
+						/* Temporarily store delayed elements to facilite access for global pause/resume */
+						Velocity.State.delayedElements.push(element);
+						var callIndex = Velocity.State.delayedElements.length - 1;
+
+						var delayComplete = (function(index) {
+							return function() {
+								/* Clear the temporary element */
+								Velocity.State.delayedElements[index] = false;
+								
+								if(Velocity.State.delayedElements.length > 1000) {
+									compactSparseArray(Velocity.State.delayedElements);
+								}
+
+								/* Finally, issue the call */
+								next();
+							}
+						})(callIndex);
+
+
 						Data(element).delayBegin = (new Date()).getTime();
 						Data(element).delay = parseFloat(opts.delay);
 						Data(element).delayTimer = {
 							setTimeout: setTimeout(next, parseFloat(opts.delay)),
-							next: next
+							next: delayComplete
 						};
 					});
 				}
@@ -3664,7 +3688,31 @@
 					/* Since this buildQueue call doesn't respect the element's existing queue (which is where a delay option would have been appended),
 					 we manually inject the delay property here with an explicit setTimeout. */
 					if (opts.delay) {
-						setTimeout(buildQueue, opts.delay);
+
+						/* Temporarily store delayed elements to facilitate access for global pause/resume */
+						Velocity.State.delayedElements.push(element);
+						var callIndex = Velocity.State.delayedElements.length - 1;
+
+						var delayComplete = (function(index) {
+							return function() {
+								/* Clear the temporary element */
+								Velocity.State.delayedElements[index] = false;
+								
+								if(Velocity.State.delayedElements.length > 1000) {
+									compactSparseArray(Velocity.State.delayedElements);
+								}
+
+								/* Finally, issue the call */
+								buildQueue();
+							}
+						})(callIndex);
+
+						Data(element).delayBegin = (new Date()).getTime();
+						Data(element).delay = parseFloat(opts.delay);
+						Data(element).delayTimer = {
+							setTimeout: setTimeout(buildQueue, parseFloat(opts.delay)),
+							next: delayComplete
+						};
 					} else {
 						buildQueue();
 					}
@@ -3876,7 +3924,7 @@
 
 					/* If a pause object is present, skip processing unless it has been set to resume */
 					if(pauseObject) {
-						if(pauseObject.resume) {
+						if(pauseObject.resume === true) {
 							/* Update the time start to accomodate the paused completion amount */
 							timeStart = callContainer[3] = Math.round(timeCurrent - millisecondsEllapsed - 16);
 
